@@ -26,30 +26,51 @@
           </div>
         </div>
       </div>
-
-
-
     </div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.25.0/mode/javascript/javascript.min.js"></script>
-
+<script src="/plugins/ot/ot.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
+  const editorClient = ot.EditorClient;
+  const socketIOAdapter = ot.SocketIOAdapter;
+  const CodeMirrorAdapter = ot.CodeMirrorAdapter;
+
   const socket = io.connect('http://localhost:3000');
   const editor = CodeMirror.fromTextArea(document.getElementById("code-screen"), {
     lineNumbers: true,
     theme: "monokai"
   });
 
+  let cmClient;
+  function init(str, revision, clients, serverAdapter) {
+    editor.setValue(str);
+    cmClient = window.cmClient = new EditorClient(
+      revision, clients, serverAdapter, new CodeMirrorAdapter(editor)
+    );
+  };
+
+  socket.on('doc', function(obj) {
+    console.log(obj);
+    init(obj.str, obj.revision, obj.clients, new SocketIOAdapter(socket));
+  })
+
   let username = $("#chatbox-username").val();
   if(username === "") {
     const userId = Math.floor(Math.random() * 9999).toString();
     username = "User" + userId;
     $("#chatbox-username").text(username);
+  };
+
+  // メッセージ送信
+  const sendMessage = function() {
+    const userMessage = $('#userMessage').val();
+    socket.emit('chatMessage', {message: userMessage, username: username});
+    $('#userMessage').val("");
   };
 
   const userMessage = function(name, text) {
@@ -60,12 +81,7 @@
     );
   };
 
-  const sendMessage = function() {
-    const userMessage = $('#userMessage').val();
-    socket.emit('chatMessage', {message: userMessage, username: username});
-    $('#userMessage').val("");
-  };
-
+  // 自分が送信した内容を表示できるように
   socket.on('chatMessage', function(data) {
     $('#chatbox-listMessages').append(userMessage(data.username, data.message));
   });
